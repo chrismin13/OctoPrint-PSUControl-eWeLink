@@ -82,6 +82,18 @@ PSU Control then calls these methods based on configuration:
 
 ## 8. Development Setup
 
+> **Quickstart (recommended)**
+>
+> Use a virtual environment (venv) to isolate dependencies and avoid conflicts with your system Python or other OctoPrint plugins. The venv will contain this plugin in editable mode plus dev tooling (Babel/go-task).
+>
+> ```bash
+> python3 -m venv .venv
+> source .venv/bin/activate
+> python -m pip install -e .[develop]
+> ```
+>
+> This keeps installs reproducible, makes cleanup as simple as deleting `.venv`, and ensures you are testing against the plugin's declared dependencies.
+
 ```bash
 # Clone and install in editable mode
 cd /path/to/OctoPrint-PSUControl-eWeLink
@@ -93,6 +105,10 @@ sudo service octoprint restart
 # Watch logs
 tail -f ~/.octoprint/logs/octoprint.log | grep -i ewelink
 ```
+
+### Optional: Taskfile shortcuts
+
+If you use [go-task](https://taskfile.dev), `Taskfile.yml` provides shortcuts for common actions (e.g., `task install`). This is optional and not required for development.
 
 ## 9. Testing eWeLink API Locally
 
@@ -136,7 +152,29 @@ python3 -m unittest tests/test_plugin.py
 
 This is highly recommended before verifying changes to ensure no regressions in core logic (encryption, fallback, etc).
 
-## 11. Development Guidelines
+## 11. Manual Integration Testing (OctoPrint WebUI + Device)
+
+Unit tests cover internal logic, but they do not validate the full UI → OctoPrint → eWeLink → device path. Use this short manual checklist when you want to verify end-to-end behavior with a real device:
+
+1. **Install or update the plugin** in your OctoPrint instance (restart OctoPrint afterward).
+2. **Open** **Settings → PSU Control - eWeLink** and:
+   - Enter email + password.
+   - Click **Test Connection / Get Devices** and confirm the device list appears.
+   - Select your device and **Save**.
+3. **Open** **Settings → PSU Control** and:
+   - Set **Switching Method** to **Plugin**.
+   - Select **OctoPrint-PSUControl-eWeLink**.
+4. **Verify actions**:
+   - Use **PSU Control** on/off from the UI and confirm the device toggles.
+   - Refresh the PSU state and confirm it matches the actual device.
+5. **Check logs** for errors or warnings:
+   ```bash
+   tail -f ~/.octoprint/logs/octoprint.log | grep -i ewelink
+   ```
+
+This keeps manual testing explicit and fast while still validating the real hardware path.
+
+## 12. Development Guidelines
 
 Follow these rules to maintain the stability of the plugin:
 
@@ -150,7 +188,7 @@ Follow these rules to maintain the stability of the plugin:
 5.  **Plugin Registry Sync**: The file `extras/psucontrol_ewelink.md` should match `plugins.octoprint.org/_plugins/psucontrol_ewelink.md`. Update both when changing description, features, or compatibility.
 6.  **Documentation**: If you add a feature, update `API.md` and add a test case.
 
-## 12. Documentation Index
+## 13. Documentation Index
 
 - [ARCHITECTURE.md](ARCHITECTURE.md) - Component diagram, data flow
 - [SECURITY.md](SECURITY.md) - Password obfuscation details

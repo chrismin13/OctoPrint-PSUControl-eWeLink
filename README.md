@@ -34,6 +34,21 @@ Integrate [eWeLink](https://ewelink.cc/) smart switches (Sonoff, etc.) with [Oct
 3. Click **Install**
 4. Restart OctoPrint when prompted
 
+## 🛠️ Development Quickstart
+
+If you're starting development, begin here:
+
+```bash
+git clone https://github.com/chrismin13/OctoPrint-PSUControl-eWeLink.git
+cd OctoPrint-PSUControl-eWeLink
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install -e .[develop]
+python3 -m unittest tests/test_plugin.py
+```
+
+Then follow the full development guide (including manual WebUI + device testing) in [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md).
+
 ## Configuration
 
 1.  Open **OctoPrint Settings** and navigate to **PSU Control - eWeLink** (under Plugins).
