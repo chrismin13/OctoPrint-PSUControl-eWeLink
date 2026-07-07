@@ -94,7 +94,8 @@
                     Device ID Input
                     Can be typed manually or populated via the dropdown below.
                 -->
-                <input type="text" class="input-block-level" data-bind="value: settings.plugins.psucontrol_ewelink.device_id">
+                <input type="text" class="input-block-level" data-bind="value: settings.plugins.psucontrol_ewelink.device_id" />
+
 
                 <!--
                     Found Devices Dropdown
@@ -126,5 +127,16 @@
                 </div>
             </div>
         </div>
+
+      <div class="control-group">
+        <label class="control-label">{{ _('Selected Switch (multiple switches)') }}</label>
+        <div class="controls">
+        <input type="number" min="-1" class="input-block-level" data-bind="value: settings.plugins.psucontrol_ewelink.selected_switch" />
+        <small>
+          {{ _('Set to -1, if device has no multiple switches') }}
+        </small>
+        </div>
+      </div>
+
     </fieldset>
 </form>

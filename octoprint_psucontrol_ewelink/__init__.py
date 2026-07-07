@@ -7,6 +7,8 @@ import threading
 import flask
 import os
 import binascii
+
+import select
 from ewelink import EWeLink
 from ewelink.types import AppCredentials, EmailUserCredentials
 from flask_babel import gettext
@@ -44,7 +46,7 @@ class PSUControlEWeLinkPlugin(
         self._loop = None
         self._loop_thread = None
         self._salt = None
-        
+
         # Call parent constructors for all mixins
         super().__init__()
 
@@ -114,12 +116,12 @@ class PSUControlEWeLinkPlugin(
         )
 
 
-
     def get_settings_defaults(self):
         return dict(
             email="",
             password="",
             device_id="",
+            selected_switch=-1
         )
 
 
@@ -226,12 +228,13 @@ class PSUControlEWeLinkPlugin(
         Method called by PSU Control to turn the device ON.
         """
         device_id = self._settings.get(["device_id"])
+        selected_switch = int(self._settings.get(["selected_switch"]))
         if not self._ewelink_app:
             self._logger.warning("eWeLink app not connected.")
             return
         try:
             self._logger.info("Turning PSU ON via eWeLink...")
-            self._run_coro(self._toggle_device(device_id, 'on'))
+            self._run_coro(self._toggle_device(device_id, 'on', selected_switch))
         except Exception as e:
             self._logger.error(f"Error turning ON: {e}")
 
@@ -240,12 +243,13 @@ class PSUControlEWeLinkPlugin(
         Method called by PSU Control to turn the device OFF.
         """
         device_id = self._settings.get(["device_id"])
+        selected_switch = int(self._settings.get(["selected_switch"]))
         if not self._ewelink_app:
             self._logger.warning("eWeLink app not connected.")
             return
         try:
             self._logger.info("Turning PSU OFF via eWeLink...")
-            self._run_coro(self._toggle_device(device_id, 'off'))
+            self._run_coro(self._toggle_device(device_id, 'off', selected_switch))
         except Exception as e:
             self._logger.error(f"Error turning OFF: {e}")
 
@@ -338,35 +342,48 @@ class PSUControlEWeLinkPlugin(
             False if OFF
         """
         device_id = self._settings.get(["device_id"])
+        selected_switch = int(self._settings.get(["selected_switch"]))
         if not self._ewelink_app:
             return False
         try:
             # run_coro returns the result of the coro
-            return self._run_coro(self._get_device_state(device_id))
+            return self._run_coro(self._get_device_state(device_id,selected_switch))
         except Exception as e:
             # Suppress verbose error logging for polling
             # self._logger.debug(f"Error getting state: {e}")
             return False
 
-    async def _toggle_device(self, device_id, state):
+    async def _toggle_device(self, device_id, state, selected_switch):
+
+        params = {"switch": state} if selected_switch < 0 else {
+            "switches":[{"outlet": selected_switch, "switch": state}]
+        }
+        self._logger.info(f"Sending request to eWeLink: {params}, device_id: {device_id}, selected_switch: {selected_switch}")
         await self._ewelink_app._auth_request(
             "POST",
             "v2/device/thing/status",
             json={
                 "type": 1,
                 "id": device_id,
-                "params": {'switch': state},
+                "params": params,
             },
         )
 
-    async def _get_device_state(self, device_id):
+    async def _get_device_state(self, device_id, selected_switch):
         resp = await self._ewelink_app._auth_request("GET", "v2/device/thing")
         things = resp["thingList"]
         for thing in things:
             item_data = thing.get("itemData", {})
             if item_data.get("deviceid") == device_id:
                 params = item_data.get("params", {})
+                multi_switches = params.get("switches",[])
+                if multi_switches:
+                    for s in multi_switches:
+                        if s.get("outlet") == int(selected_switch):
+                            return s.get("switch") == "on"
+
                 return params.get("switch") == "on"
+
         return False
 
     def get_template_configs(self):

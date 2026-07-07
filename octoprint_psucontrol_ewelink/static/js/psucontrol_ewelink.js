@@ -194,6 +194,19 @@ $(function () {
                 text_escape: true
             });
         };
+
+        self.selectedSwitch = function (selected){
+            self.settingsViewModel.settings.plugins.psucontrol_ewelink.selected_switch(selected);
+            // Optionally verify selection
+            new PNotify({
+                // NOTE: Title of device selection notification
+                title: gettext('Switch Selected'),
+                // NOTE: Notification text confirming device selection
+                text: _.sprintf(gettext('Selected switch number: %(number)s'), { number: selected }),
+                type: 'info',
+                text_escape: true
+            });
+        }
     }
 
     OCTOPRINT_VIEWMODELS.push({
