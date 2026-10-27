@@ -13,7 +13,7 @@ name = "OctoPrint-PSUControl-eWeLink"
 # VERSION: Update this when releasing
 # Also update: docs/CHANGELOG.md
 # ============================================
-version = "1.0.15"
+version = "1.0.16"
 
 description = "Integrates eWeLink smart switches with OctoPrint PSU Control"
 authors = [

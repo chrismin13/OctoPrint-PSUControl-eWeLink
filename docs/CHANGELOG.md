@@ -2,7 +2,7 @@
 
 All notable changes to this project are documented in this file.
 
-## [Unreleased]
+## [1.0.16] - 2026-10-28
 
 ### Added
 - **Outlet** setting for devices with more than one output. Defaults to **Automatic**; the outlets of the selected device are listed after clicking **Test Connection / Get Devices** (based on [#2](https://github.com/chrismin13/OctoPrint-PSUControl-eWeLink/pull/2) by @fleury08).
