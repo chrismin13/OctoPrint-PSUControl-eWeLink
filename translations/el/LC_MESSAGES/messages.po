@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: i18n@octoprint.org\n"
-"POT-Creation-Date: 2026-01-18 13:42+0200\n"
+"POT-Creation-Date: 2026-10-28 01:43+0200\n"
 "PO-Revision-Date: 2026-01-18 13:22+0200\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: el\n"
@@ -16,15 +16,15 @@ msgstr ""
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Generated-By: Babel 2.17.0\n"
+"Generated-By: Babel 2.18.0\n"
 
 #. NOTE: Error message when API command is not recognized
-#: octoprint_psucontrol_ewelink/__init__.py:302
+#: octoprint_psucontrol_ewelink/__init__.py:314
 msgid "Unknown command"
 msgstr "Άγνωστη εντολή"
 
 #. NOTE: Error message showing the specific exception error
-#: octoprint_psucontrol_ewelink/__init__.py:324
+#: octoprint_psucontrol_ewelink/__init__.py:337
 #, python-format
 msgid "Connection failed: %(error)s"
 msgstr "Αποτυχία σύνδεσης: %(error)s"
@@ -60,13 +60,24 @@ msgstr "Το Αίτημα API απέτυχε"
 msgid "Connection Failed"
 msgstr "Αποτυχία Σύνδεσης"
 
-#. NOTE: Title of device selection notification
+#. NOTE: Outlet dropdown option that detects the outlet automatically
 #: octoprint_psucontrol_ewelink/static/js/psucontrol_ewelink.js:190
+msgid "Automatic (recommended)"
+msgstr "Αυτόματα (προτείνεται)"
+
+#. NOTE: Outlet dropdown option, number starts at 1
+#: octoprint_psucontrol_ewelink/static/js/psucontrol_ewelink.js:214
+#, python-format
+msgid "Outlet %(number)d"
+msgstr "Έξοδος %(number)d"
+
+#. NOTE: Title of device selection notification
+#: octoprint_psucontrol_ewelink/static/js/psucontrol_ewelink.js:231
 msgid "Device Selected"
 msgstr "Η Συσκευή Επιλέχθηκε"
 
 #. NOTE: Notification text confirming device selection
-#: octoprint_psucontrol_ewelink/static/js/psucontrol_ewelink.js:192
+#: octoprint_psucontrol_ewelink/static/js/psucontrol_ewelink.js:233
 #, python-format
 msgid "Selected %(name)s (%(id)s)"
 msgstr "Επιλέχθηκε %(name)s (%(id)s)"
@@ -162,21 +173,36 @@ msgstr "Ρύθμιση Συσκευής"
 msgid "Device ID"
 msgstr "ID Συσκευής"
 
-#: octoprint_psucontrol_ewelink/templates/psucontrol_ewelink_settings.jinja2:106
+#: octoprint_psucontrol_ewelink/templates/psucontrol_ewelink_settings.jinja2:107
 msgid "Found Devices:"
 msgstr "Βρέθηκαν Συσκευές:"
 
-#: octoprint_psucontrol_ewelink/templates/psucontrol_ewelink_settings.jinja2:110
+#: octoprint_psucontrol_ewelink/templates/psucontrol_ewelink_settings.jinja2:111
 msgid "Select Device"
 msgstr "Επιλογή Συσκευής"
 
-#: octoprint_psucontrol_ewelink/templates/psucontrol_ewelink_settings.jinja2:119
+#: octoprint_psucontrol_ewelink/templates/psucontrol_ewelink_settings.jinja2:120
 msgid "Online"
 msgstr "Συνδεδεμένο"
 
-#: octoprint_psucontrol_ewelink/templates/psucontrol_ewelink_settings.jinja2:121
+#: octoprint_psucontrol_ewelink/templates/psucontrol_ewelink_settings.jinja2:122
 msgid "Offline"
 msgstr "Αποσυνδεδεμένο"
 
+#: octoprint_psucontrol_ewelink/templates/psucontrol_ewelink_settings.jinja2:138
+msgid "Outlet"
+msgstr "Έξοδος"
+
+#: octoprint_psucontrol_ewelink/templates/psucontrol_ewelink_settings.jinja2:142
+msgid ""
+"Leave on Automatic unless your device has more than one output. To list "
+"the outlets of the selected device, click \"Test Connection / Get "
+"Devices\"."
+msgstr ""
+"Αφήστε το στο Αυτόματα, εκτός αν η συσκευή σας έχει περισσότερες από μία "
+"εξόδους. Για να εμφανιστούν οι έξοδοι της επιλεγμένης συσκευής, πατήστε "
+"\"Δοκιμή Σύνδεσης / Λήψη Συσκευών\"."
+
 #~ msgid "Missing Requirement:"
 #~ msgstr "Απαιστείται Ρύθμιση:"
+

@@ -158,6 +158,7 @@ class TestPSUControlEWeLinkPlugin(unittest.TestCase):
         self.assertEqual(defaults["email"], "")
         self.assertEqual(defaults["password"], "")
         self.assertEqual(defaults["device_id"], "")
+        self.assertEqual(defaults["selected_switch"], -1)
 
     def test_password_encryption(self):
         """Test password encryption and decryption"""
@@ -325,8 +326,153 @@ class TestPSUControlEWeLinkPlugin(unittest.TestCase):
 
         self.plugin.turn_psu_on()
 
-        self.plugin._toggle_device.assert_called_with("device123", "on")
+        self.plugin._toggle_device.assert_called_with("device123", "on", -1)
         self.plugin._run_coro.assert_called()
+
+    def test_turn_psu_on_passes_selected_switch(self):
+        """Test turn_psu_on passes the configured outlet to toggle_device"""
+        self.plugin._ewelink_app = MagicMock()
+        self.plugin._settings.get.side_effect = lambda path: {
+            "device_id": "device123",
+            "selected_switch": "2",
+        }.get(path[0])
+        self.plugin._run_coro = MagicMock()
+        self.plugin._toggle_device = MagicMock()
+
+        self.plugin.turn_psu_on()
+
+        self.plugin._toggle_device.assert_called_with("device123", "on", 2)
+
+    def test_get_psu_state_invalid_selected_switch(self):
+        """Test a blank outlet setting doesn't break state polling"""
+        self.plugin._ewelink_app = MagicMock()
+        self.plugin._settings.get.side_effect = lambda path: {
+            "device_id": "device123",
+            "selected_switch": "",
+        }.get(path[0])
+        self.plugin._run_coro = MagicMock(return_value=True)
+        self.plugin._get_device_state = MagicMock()
+
+        self.assertTrue(self.plugin.get_psu_state())
+        self.plugin._get_device_state.assert_called_with("device123", -1)
+
+    def test_get_selected_switch_parsing(self):
+        """Test the outlet setting falls back to automatic on bad input"""
+        for raw, expected in [(None, -1), ("", -1), ("abc", -1), ("-1", -1), (-1, -1), ("0", 0), (3, 3)]:
+            self.plugin._settings.get.return_value = raw
+            self.assertEqual(self.plugin._get_selected_switch(), expected, raw)
+
+
+class TestSwitchFormats(unittest.TestCase):
+    """
+    Tests for the two eWeLink switch formats:
+    - single: {"switch": "on"}                          (e.g. BASIC R2)
+    - multi:  {"switches": [{"outlet": 0, ...}, ...]}   (e.g. BASICR4, S60TPF)
+    """
+
+    SINGLE = {"switch": "on"}
+    MULTI = {"switches": [
+        {"outlet": 0, "switch": "on"},
+        {"outlet": 1, "switch": "off"},
+        {"outlet": 2, "switch": "off"},
+        {"outlet": 3, "switch": "off"},
+    ]}
+
+    def setUp(self):
+        self.plugin = PSUControlEWeLinkPlugin()
+        self.plugin._logger = MagicMock()
+        self.plugin._ewelink_app = MagicMock()
+        self.auth_request = AsyncMock()
+        self.plugin._ewelink_app._auth_request = self.auth_request
+
+    def _set_device(self, params, device_id="device123"):
+        """Make GET v2/device/thing return one device with the given params"""
+        self.auth_request.return_value = {"thingList": [
+            {"itemType": 1, "itemData": {"deviceid": device_id, "params": params}},
+        ]}
+
+    def _sent_params(self):
+        """Params of the last POST v2/device/thing/status request"""
+        method, endpoint = self.auth_request.call_args.args
+        self.assertEqual((method, endpoint), ("POST", "v2/device/thing/status"))
+        body = self.auth_request.call_args.kwargs["json"]
+        self.assertEqual(body["type"], 1)
+        self.assertEqual(body["id"], "device123")
+        return body["params"]
+
+    def toggle(self, state, selected_switch=-1):
+        asyncio.run(self.plugin._toggle_device("device123", state, selected_switch))
+        return self._sent_params()
+
+    def state(self, selected_switch=-1):
+        return asyncio.run(self.plugin._get_device_state("device123", selected_switch))
+
+    # Single format (BASIC R2): must behave exactly as before
+
+    def test_single_toggle_unchanged(self):
+        self._set_device(self.SINGLE)
+        self.assertEqual(self.toggle("on"), {"switch": "on"})
+        self.assertEqual(self.toggle("off"), {"switch": "off"})
+
+    def test_single_state_unchanged(self):
+        self._set_device({"switch": "on"})
+        self.assertTrue(self.state())
+        self._set_device({"switch": "off"})
+        self.assertFalse(self.state())
+
+    def test_single_ignores_outlet_setting(self):
+        """An outlet set on a single-format device falls back to the single format"""
+        self._set_device(self.SINGLE)
+        self.assertEqual(self.toggle("on", selected_switch=0), {"switch": "on"})
+        self.assertTrue(self.state(selected_switch=0))
+        self.plugin._logger.warning.assert_called_once()
+
+    def test_device_not_found_uses_single_format(self):
+        """If the device isn't listed, send the same command as before"""
+        self.auth_request.return_value = {"thingList": []}
+        self.assertEqual(self.toggle("on"), {"switch": "on"})
+
+    def test_device_with_both_formats_prefers_single(self):
+        self._set_device({"switch": "on", "switches": [{"outlet": 0, "switch": "off"}]})
+        self.assertEqual(self.toggle("off"), {"switch": "off"})
+        self.assertTrue(self.state())
+
+    # Multi format (BASICR4, S60TPF)
+
+    def test_multi_auto_uses_outlet_0(self):
+        self._set_device(self.MULTI)
+        self.assertEqual(self.toggle("off"), {"switches": [{"outlet": 0, "switch": "off"}]})
+        self.assertTrue(self.state())
+
+    def test_multi_selected_outlet(self):
+        self._set_device(self.MULTI)
+        self.assertEqual(self.toggle("on", selected_switch=1), {"switches": [{"outlet": 1, "switch": "on"}]})
+        self.assertFalse(self.state(selected_switch=1))
+
+    def test_multi_missing_outlet_falls_back_to_auto(self):
+        self._set_device(self.MULTI)
+        self.assertEqual(self.toggle("on", selected_switch=7), {"switches": [{"outlet": 0, "switch": "on"}]})
+        self.assertTrue(self.state(selected_switch=7))
+        # Warned once, not on every poll
+        self.plugin._logger.warning.assert_called_once()
+
+    def test_get_outlets(self):
+        self.assertEqual(PSUControlEWeLinkPlugin._get_outlets(self.SINGLE), [])
+        self.assertEqual(PSUControlEWeLinkPlugin._get_outlets(self.MULTI), [0, 1, 2, 3])
+        self.assertEqual(PSUControlEWeLinkPlugin._get_outlets({"switches": "bad"}), [])
+
+    def test_fetch_devices_lists_outlets(self):
+        """Test the device scan reports each device's outlets"""
+        app = MagicMock()
+        app.login = AsyncMock()
+        app._auth_request = AsyncMock(return_value={"thingList": [
+            {"itemData": {"name": "Basic", "deviceid": "a", "online": True, "params": self.SINGLE}},
+            {"itemData": {"name": "S60", "deviceid": "b", "online": True, "params": self.MULTI}},
+        ]})
+        with patch("octoprint_psucontrol_ewelink.EWeLink", return_value=app):
+            devices = asyncio.run(self.plugin._async_fetch_devices("e", "p"))
+
+        self.assertEqual([d["outlets"] for d in devices], [[], [0, 1, 2, 3]])
 
 
 class TestPluginLoad(unittest.TestCase):

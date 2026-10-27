@@ -45,7 +45,7 @@ The main plugin class `PSUControlEWeLinkPlugin` inherits from multiple OctoPrint
 | `StartupPlugin` | Initialize asyncio loop and eWeLink connection on startup |
 | `ShutdownPlugin` | Clean shutdown of asyncio loop |
 | `TemplatePlugin` | Provide settings UI template |
-| `SettingsPlugin` | Manage plugin settings (email, password, device_id) |
+| `SettingsPlugin` | Manage plugin settings (email, password, device_id, selected_switch) |
 | `SimpleApiPlugin` | Expose `get_devices` API for frontend |
 | `AssetPlugin` | Serve JavaScript assets |
 | `RestartNeedingPlugin` | Flag that restart is needed after settings change |
@@ -92,6 +92,7 @@ Knockout.js ViewModel providing:
 - **Password masking** to hide credentials in UI
 - **Test Connection** button to validate credentials
 - **Device dropdown** for easy device selection
+- **Outlet dropdown** ("Automatic" plus the selected device's outlets)
 - **Configuration banners** warning if PSU Control isn't configured
 
 ### 5. Settings Template (`psucontrol_ewelink_settings.jinja2`)
@@ -100,6 +101,7 @@ HTML form with data-bindings to the ViewModel:
 - Email input
 - Password input (type="password")
 - Device ID input + dropdown selector
+- Outlet selector
 - Test Connection button
 - Warning banners for configuration issues
 
@@ -117,6 +119,8 @@ User enters credentials → Settings saved → on_settings_save()
 
 ```
 PSU Control calls turn_psu_on() → _run_coro(_toggle_device())
+    → eWeLink API GET /v2/device/thing (read the device's params)
+    → _resolve_outlet() picks the switch format
     → eWeLink API POST /v2/device/thing/status
     → Device switched
 ```
@@ -127,8 +131,24 @@ PSU Control calls turn_psu_on() → _run_coro(_toggle_device())
 PSU Control polls get_psu_state() every 5 seconds
     → _run_coro(_get_device_state())
     → eWeLink API GET /v2/device/thing
-    → Parse params.switch → Return True/False
+    → _resolve_outlet() picks the switch format
+    → Parse params.switch or params.switches[outlet] → Return True/False
 ```
+
+### Switch Formats
+
+eWeLink devices report their relay state in one of two formats:
+
+| Format | Params | Example devices |
+|--------|--------|-----------------|
+| Single | `{"switch": "on"}` | BASIC R2, MINI R2, S26 |
+| Multi | `{"switches": [{"outlet": 0, "switch": "on"}, ...]}` | BASICR4, S60TPF, 4CH |
+
+The format is detected from the params the device reports, not from its model:
+
+1. If **Outlet** is set and the device reports that outlet, it is used.
+2. Otherwise (**Automatic**), devices reporting `switch` use the single format, exactly as in earlier versions.
+3. Devices reporting only `switches` use outlet 0.
 
 ## Region Auto-Detection
 
