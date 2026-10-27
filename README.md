@@ -7,9 +7,7 @@ Integrate [eWeLink](https://ewelink.cc/) smart switches (Sonoff, etc.) with [Oct
 </p>
 
 > [!WARNING]
-> This plugin is entirely **vibe coded**. While a lot of time and care has been put into making sure that it works, it's easy to use, looks nice, and that it is safe and secure to use, this cannot be guaranteed, and it is provided as-is.
->
-> Due to it being vibe coded, this plugin cannot be submitted to the OctoPrint Public Repository.
+> This plugin is entirely **vibe coded**. While a lot of time and care has been put into making sure that it works, it's easy to use, looks nice, and that it is safe and secure to use, this cannot be guaranteed, and it is provided as-is
 >
 > If this is not to your liking, please do not use this plugin.
 
