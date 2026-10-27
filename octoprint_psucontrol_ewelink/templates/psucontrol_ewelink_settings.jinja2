@@ -128,15 +128,19 @@
             </div>
         </div>
 
-      <div class="control-group">
-        <label class="control-label">{{ _('Selected Switch (multiple switches)') }}</label>
-        <div class="controls">
-        <input type="number" min="-1" class="input-block-level" data-bind="value: settings.plugins.psucontrol_ewelink.selected_switch" />
-        <small>
-          {{ _('Set to -1, if device has no multiple switches') }}
-        </small>
+        <!--
+            Outlet Selection
+            "Automatic" (-1) detects the outlet from the device's reported state.
+            Specific outlets are listed by `outletOptions` once devices have been fetched.
+        -->
+        <div class="control-group">
+            {# NOTE: Label for outlet selection dropdown #}
+            <label class="control-label">{{ _('Outlet') }}</label>
+            <div class="controls">
+                <select class="input-block-level" data-bind="options: outletOptions, optionsText: 'label', optionsValue: 'value', value: settings.plugins.psucontrol_ewelink.selected_switch, valueAllowUnset: true"></select>
+                {# NOTE: Help text for outlet selection dropdown #}
+                <span class="help-block">{{ _('Leave on Automatic unless your device has more than one output. To list the outlets of the selected device, click "Test Connection / Get Devices".') }}</span>
+            </div>
         </div>
-      </div>
-
     </fieldset>
 </form>

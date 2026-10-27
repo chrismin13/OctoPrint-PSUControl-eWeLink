@@ -83,6 +83,22 @@ Look for:
 
 ---
 
+## Error 4002 ("控制失败") or Wrong Outlet Switching
+
+**Symptom:** Log shows `Error (4002): 控制失败` ("control failed"), or a multi-output device switches the wrong output.
+
+**Possible Causes:**
+
+| Cause | Solution |
+|-------|----------|
+| Device is offline | Check the device is "Online" in the eWeLink app |
+| Wrong outlet selected | Set **Outlet** to **Automatic**, or click **Test Connection / Get Devices** and pick the right outlet |
+| Plugin version 1.0.15 or older | Update the plugin. Older versions only supported devices that report a single `switch` value (not BASICR4, S60TPF, etc.) |
+
+If an outlet is selected that the device doesn't report, the log shows `Device ... has no outlet ...` and the plugin falls back to **Automatic**.
+
+---
+
 ## State Not Updating
 
 **Symptom:** Navbar icon doesn't reflect actual switch state.

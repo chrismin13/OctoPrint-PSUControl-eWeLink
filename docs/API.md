@@ -33,16 +33,20 @@ Fetches the list of devices associated with the eWeLink account.
         {
             "name": "3D Printer",
             "deviceid": "10011e0b86",
-            "online": true
+            "online": true,
+            "outlets": []
         },
         {
             "name": "Desk Lamp",
             "deviceid": "10012abc12",
-            "online": false
+            "online": false,
+            "outlets": [0, 1, 2, 3]
         }
     ]
 }
 ```
+
+`outlets` lists the outlet numbers (0-based) a device reports in its `switches` params. It is empty for devices that report a single `switch` value. Some single-relay devices (e.g. BASICR4) still report several outlets.
 
 **Response (Error):**
 ```json

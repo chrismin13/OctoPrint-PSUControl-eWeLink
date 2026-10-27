@@ -2,6 +2,16 @@
 
 All notable changes to this project are documented in this file.
 
+## [Unreleased]
+
+### Added
+- **Outlet** setting for devices with more than one output. Defaults to **Automatic**; the outlets of the selected device are listed after clicking **Test Connection / Get Devices** (based on [#2](https://github.com/chrismin13/OctoPrint-PSUControl-eWeLink/pull/2) by @fleury08).
+- `get_devices` API now returns each device's `outlets`.
+
+### Fixed
+- Switching and state sensing for devices that report their state as a `switches` list instead of a single `switch` value, such as the SONOFF BASICR4 and S60TPF ([#3](https://github.com/chrismin13/OctoPrint-PSUControl-eWeLink/issues/3), [#5](https://github.com/chrismin13/OctoPrint-PSUControl-eWeLink/issues/5)). These devices previously failed with error `4002` and always showed as OFF. Devices using the single `switch` value (e.g. BASIC R2) behave as before.
+- Errors while polling the device state are now logged at debug level instead of being discarded.
+
 ## [1.0.15] - 2026-05-08
 
 ### Fixed

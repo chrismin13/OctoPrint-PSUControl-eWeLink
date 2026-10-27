@@ -7,8 +7,6 @@ import threading
 import flask
 import os
 import binascii
-
-import select
 from ewelink import EWeLink
 from ewelink.types import AppCredentials, EmailUserCredentials
 from flask_babel import gettext
@@ -20,6 +18,9 @@ __plugin_privacypolicy__ = "https://github.com/chrismin13/OctoPrint-PSUControl-e
 # Known working App ID and Secret (extracted from SonoffLAN)
 APP_ID = "R8Oq3y0eSZSYdKccHlrQzT1ACCOUT9Gv"
 APP_SECRET = "1ve5Qk9GXfUhKAn1svnKwpAlxXkMarru"
+
+# Value of the `selected_switch` setting meaning "detect the outlet automatically"
+AUTO_SWITCH = -1
 
 class PSUControlEWeLinkPlugin(
         octoprint.plugin.StartupPlugin,
@@ -46,6 +47,8 @@ class PSUControlEWeLinkPlugin(
         self._loop = None
         self._loop_thread = None
         self._salt = None
+        # Last (device_id, outlet) we warned about, so polling doesn't spam the log
+        self._warned_outlet = None
 
         # Call parent constructors for all mixins
         super().__init__()
@@ -121,7 +124,7 @@ class PSUControlEWeLinkPlugin(
             email="",
             password="",
             device_id="",
-            selected_switch=-1
+            selected_switch=AUTO_SWITCH,
         )
 
 
@@ -228,13 +231,12 @@ class PSUControlEWeLinkPlugin(
         Method called by PSU Control to turn the device ON.
         """
         device_id = self._settings.get(["device_id"])
-        selected_switch = int(self._settings.get(["selected_switch"]))
         if not self._ewelink_app:
             self._logger.warning("eWeLink app not connected.")
             return
         try:
             self._logger.info("Turning PSU ON via eWeLink...")
-            self._run_coro(self._toggle_device(device_id, 'on', selected_switch))
+            self._run_coro(self._toggle_device(device_id, 'on', self._get_selected_switch()))
         except Exception as e:
             self._logger.error(f"Error turning ON: {e}")
 
@@ -243,13 +245,12 @@ class PSUControlEWeLinkPlugin(
         Method called by PSU Control to turn the device OFF.
         """
         device_id = self._settings.get(["device_id"])
-        selected_switch = int(self._settings.get(["selected_switch"]))
         if not self._ewelink_app:
             self._logger.warning("eWeLink app not connected.")
             return
         try:
             self._logger.info("Turning PSU OFF via eWeLink...")
-            self._run_coro(self._toggle_device(device_id, 'off', selected_switch))
+            self._run_coro(self._toggle_device(device_id, 'off', self._get_selected_switch()))
         except Exception as e:
             self._logger.error(f"Error turning OFF: {e}")
 
@@ -327,7 +328,8 @@ class PSUControlEWeLinkPlugin(
                     devices.append({
                         "name": item.get("name", "Unknown"),
                         "deviceid": item.get("deviceid"),
-                        "online": item.get("online", False)
+                        "online": item.get("online", False),
+                        "outlets": self._get_outlets(item.get("params", {})),
                     })
             return devices
         except Exception as e:
@@ -342,23 +344,87 @@ class PSUControlEWeLinkPlugin(
             False if OFF
         """
         device_id = self._settings.get(["device_id"])
-        selected_switch = int(self._settings.get(["selected_switch"]))
         if not self._ewelink_app:
             return False
         try:
             # run_coro returns the result of the coro
-            return self._run_coro(self._get_device_state(device_id,selected_switch))
+            return self._run_coro(self._get_device_state(device_id, self._get_selected_switch()))
         except Exception as e:
-            # Suppress verbose error logging for polling
-            # self._logger.debug(f"Error getting state: {e}")
+            # Polling runs every few seconds, so keep this at debug level
+            self._logger.debug(f"Error getting state: {e}")
             return False
 
-    async def _toggle_device(self, device_id, state, selected_switch):
+    ##~~ Switch format helpers
+    #
+    # eWeLink devices report their relay state in one of two formats:
+    # - single:    params = {"switch": "on"}                         (e.g. BASIC R2, MINI R2)
+    # - multi:     params = {"switches": [{"outlet": 0, "switch": "on"}, ...]}
+    #                                                              (e.g. BASICR4, S60TPF, 4CH)
+    # Some single-relay devices still use the multi format, so the format is detected
+    # from the device's reported params rather than from its model.
 
-        params = {"switch": state} if selected_switch < 0 else {
-            "switches":[{"outlet": selected_switch, "switch": state}]
-        }
-        self._logger.info(f"Sending request to eWeLink: {params}, device_id: {device_id}, selected_switch: {selected_switch}")
+    def _get_selected_switch(self):
+        """
+        Returns the configured outlet number, or AUTO_SWITCH if unset or invalid.
+        """
+        try:
+            return int(self._settings.get(["selected_switch"]))
+        except (TypeError, ValueError):
+            return AUTO_SWITCH
+
+    @staticmethod
+    def _get_outlets(params):
+        """
+        Returns the sorted outlet numbers a device reports, or [] for single-format devices.
+        """
+        switches = params.get("switches")
+        if not isinstance(switches, list):
+            return []
+        return sorted(s["outlet"] for s in switches if isinstance(s, dict) and isinstance(s.get("outlet"), int))
+
+    def _resolve_outlet(self, device_id, params, selected_switch):
+        """
+        Decides which outlet to control.
+        Returns None to use the single format, or an outlet number for the multi format.
+        """
+        outlets = self._get_outlets(params)
+
+        if selected_switch >= 0:
+            if selected_switch in outlets:
+                return selected_switch
+            if self._warned_outlet != (device_id, selected_switch):
+                self._warned_outlet = (device_id, selected_switch)
+                self._logger.warning(
+                    f"Device {device_id} has no outlet {selected_switch} "
+                    f"(available: {outlets or 'none'}). Falling back to automatic detection."
+                )
+
+        # Devices reporting the single format keep using it, exactly as before
+        if "switch" in params or not outlets:
+            return None
+        return 0 if 0 in outlets else outlets[0]
+
+    async def _get_device_params(self, device_id):
+        """
+        Fetches the reported params of a device, or {} if it isn't in the account.
+        """
+        resp = await self._ewelink_app._auth_request("GET", "v2/device/thing")
+        for thing in resp.get("thingList", []):
+            item_data = thing.get("itemData", {})
+            if item_data.get("deviceid") == device_id:
+                return item_data.get("params", {})
+        return {}
+
+    async def _toggle_device(self, device_id, state, selected_switch):
+        current = await self._get_device_params(device_id)
+        outlet = self._resolve_outlet(device_id, current, selected_switch)
+
+        if outlet is None:
+            params = {"switch": state}
+        else:
+            params = {"switches": [{"outlet": outlet, "switch": state}]}
+
+        self._logger.debug(f"Sending params to eWeLink device {device_id}: {params}")
         await self._ewelink_app._auth_request(
             "POST",
             "v2/device/thing/status",
@@ -370,21 +436,15 @@ class PSUControlEWeLinkPlugin(
         )
 
     async def _get_device_state(self, device_id, selected_switch):
-        resp = await self._ewelink_app._auth_request("GET", "v2/device/thing")
-        things = resp["thingList"]
-        for thing in things:
-            item_data = thing.get("itemData", {})
-            if item_data.get("deviceid") == device_id:
-                params = item_data.get("params", {})
-                multi_switches = params.get("switches",[])
-                if multi_switches:
-                    for s in multi_switches:
-                        if s.get("outlet") == int(selected_switch):
-                            return s.get("switch") == "on"
+        params = await self._get_device_params(device_id)
+        outlet = self._resolve_outlet(device_id, params, selected_switch)
 
-                return params.get("switch") == "on"
-
-        return False
+        if outlet is None:
+            return params.get("switch") == "on"
+        return any(
+            s.get("outlet") == outlet and s.get("switch") == "on"
+            for s in params.get("switches", [])
+        )
 
     def get_template_configs(self):
         return [

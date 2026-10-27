@@ -181,9 +181,50 @@ $(function () {
                 });
         };
 
+        // Choices for the "Outlet" dropdown.
+        // "Automatic" is always offered. The outlets of the selected device are added once
+        // "Test Connection / Get Devices" has listed them. Outlets are 0-based in the API,
+        // but shown 1-based to match the eWeLink app.
+        self.outletOptions = ko.pureComputed(function () {
+            // NOTE: Outlet dropdown option that detects the outlet automatically
+            var options = [{ value: -1, label: gettext("Automatic (recommended)") }];
+            var pluginSettings = self.settingsViewModel.settings &&
+                self.settingsViewModel.settings.plugins &&
+                self.settingsViewModel.settings.plugins.psucontrol_ewelink;
+            if (!pluginSettings) {
+                return options;
+            }
+
+            var device = _.find(self.deviceList(), function (d) {
+                return d.deviceid === pluginSettings.device_id();
+            });
+            var outlets = device && device.outlets ? device.outlets.slice() : [];
+
+            // Keep a previously saved outlet selectable before the device list is loaded
+            var current = parseInt(pluginSettings.selected_switch(), 10);
+            if (current >= 0 && outlets.indexOf(current) === -1) {
+                outlets.push(current);
+                outlets.sort(function (a, b) { return a - b; });
+            }
+
+            _.each(outlets, function (outlet) {
+                options.push({
+                    value: outlet,
+                    // NOTE: Outlet dropdown option, number starts at 1
+                    label: _.sprintf(gettext("Outlet %(number)d"), { number: outlet + 1 })
+                });
+            });
+            return options;
+        });
+
         // When a user selects a device from the list, we update the setting immediately.
         self.selectDevice = function (device) {
-            self.settingsViewModel.settings.plugins.psucontrol_ewelink.device_id(device.deviceid);
+            var pluginSettings = self.settingsViewModel.settings.plugins.psucontrol_ewelink;
+            if (pluginSettings.device_id() !== device.deviceid) {
+                // An outlet chosen for the previous device may not exist on this one
+                pluginSettings.selected_switch(-1);
+            }
+            pluginSettings.device_id(device.deviceid);
             // Optionally verify selection
             new PNotify({
                 // NOTE: Title of device selection notification
@@ -194,19 +235,6 @@ $(function () {
                 text_escape: true
             });
         };
-
-        self.selectedSwitch = function (selected){
-            self.settingsViewModel.settings.plugins.psucontrol_ewelink.selected_switch(selected);
-            // Optionally verify selection
-            new PNotify({
-                // NOTE: Title of device selection notification
-                title: gettext('Switch Selected'),
-                // NOTE: Notification text confirming device selection
-                text: _.sprintf(gettext('Selected switch number: %(number)s'), { number: selected }),
-                type: 'info',
-                text_escape: true
-            });
-        }
     }
 
     OCTOPRINT_VIEWMODELS.push({

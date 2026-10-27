@@ -42,10 +42,11 @@ Integrate [eWeLink](https://ewelink.cc/) smart switches (Sonoff, etc.) with [Oct
     *   This will check your credentials and fetch your available devices.
     *   The region is auto-detected by the eWeLink API.
 4.  Select your printer's smart switch from the **Device ID** dropdown.
-5.  Click **Save**.
-6.  Navigate to **PSU Control** settings.
-7.  Set **Switching Method** to **Plugin**.
-8.  Select **OctoPrint-PSUControl-eWeLink** from the plugin list.
+5.  Leave **Outlet** on **Automatic**, unless your device has more than one output (e.g. a 4CH switch). In that case, pick the outlet your printer is connected to.
+6.  Click **Save**.
+7.  Navigate to **PSU Control** settings.
+8.  Set **Switching Method** to **Plugin**.
+9.  Select **OctoPrint-PSUControl-eWeLink** from the plugin list.
 
 ## Security
 
