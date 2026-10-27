@@ -19,7 +19,15 @@ Integrate [eWeLink](https://ewelink.cc/) smart switches (Sonoff, etc.) with [Oct
 *   **eWeLink Account**: Email and Password
 *   **eWeLink Device**: A smart switch (e.g., Sonoff Basic, S26) connected to your printer
 
-## 📦 Installation
+
+## 📦 Easy Installation
+
+1. Open **OctoPrint Settings** → **Plugin Manager** → **Get More**
+2. Search for `OctoPrint PSUControl eWeLink`
+3. Click **Install**
+4. Restart OctoPrint when prompted
+
+## 🛠️ Manual Installation
 
 > [!TIP]
 > **Install URL** (copy this):
